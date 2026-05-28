@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAR PLANNER // BATTLE GROUP</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0a0e1a;
+  --bg-panel: #16213e;
+  --bg-panel-2: #1a2847;
+  --bg-elev: #1f2e52;
+  --gold: #d4a017;
+  --gold-bright: #f1c232;
+  --gold-dim: #8b6914;
+  --red: #c0392b;
+  --orange: #e67e22;
+  --yellow: #f1c40f;
+  --green: #27ae60;
+  --blue: #3498db;
+  --text: #ecf0f1;
+  --text-muted: #7f8c8d;
+  --text-dim: #5a6878;
+  --border: rgba(212,160,23,0.25);
+  --border-bright: rgba(212,160,23,0.6);
+  --shadow: 0 0 24px rgba(212,160,23,0.15);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg-deep); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 15px; min-height: 100vh; }
+body {
+  background-image:
+    radial-gradient(ellipse at top left, rgba(212,160,23,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(192,57,43,0.05) 0%, transparent 50%),
+    linear-gradient(180deg, var(--bg-deep) 0%, #060912 100%);
+  background-attachment: fixed;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; mix-blend-mode: overlay;
+  background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(255,255,255,0.012) 3px, rgba(255,255,255,0.012) 4px);
+}
+
+/* TOP BAR */
+.top-bar { position: sticky; top: 0; z-index: 100; background: linear-gradient(180deg, rgba(10,14,26,0.97) 0%, rgba(10,14,26,0.85) 100%); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+.top-bar-inner { max-width: 1400px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon { font-size: 32px; }
+.brand-text { display: flex; flex-direction: column; }
+.brand-title { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 20px; letter-spacing: 0.18em; color: var(--red); text-shadow: 0 0 12px rgba(192,57,43,0.5); line-height: 1; }
+.brand-sub { font-size: 11px; font-weight: 600; letter-spacing: 0.25em; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; }
+.top-stats { display: flex; gap: 0; margin-left: auto; align-items: center; }
+.top-stat { display: flex; flex-direction: column; align-items: center; padding: 0 20px; border-right: 1px solid var(--border); }
+.top-stat:last-child { border-right: none; }
+.top-stat-label { font-size: 10px; letter-spacing: 0.2em; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+.top-stat-value { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 22px; color: var(--text); letter-spacing: 0.05em; margin-top: 2px; }
+.top-stat-value.red { color: var(--red); }
+.top-stat-value.yellow { color: var(--yellow); }
+.top-stat-value.green { color: var(--green); }
+.top-stat-value.gold { color: var(--gold); }
+
+/* NAV TABS */
+.nav-tabs { display: flex; gap: 4px; padding: 0 24px; max-width: 1400px; margin: 0 auto; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.nav-tabs::-webkit-scrollbar { display: none; }
+.nav-tab { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; padding: 12px 20px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; position: relative; white-space: nowrap; transition: color 0.2s; display: flex; align-items: center; gap: 8px; }
+.nav-tab:hover { color: var(--gold-bright); }
+.nav-tab.active { color: var(--gold); }
+.nav-tab.active::after { content: ''; position: absolute; bottom: -1px; left: 20px; right: 20px; height: 2px; background: var(--gold); box-shadow: 0 0 12px var(--gold); }
+
+/* MAIN */
+.main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.view { display: none; }
+.view.active { display: block; animation: fadein 0.3s ease; }
+@keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* PANEL */
+.panel { background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%); border: 1px solid var(--border); position: relative; margin-bottom: 20px; box-shadow: var(--shadow); }
+.panel::before, .panel::after { content: ''; position: absolute; width: 10px; height: 10px; border: 2px solid var(--gold); pointer-events: none; }
+.panel::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.panel::after { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, rgba(212,160,23,0.06) 0%, transparent 100%); }
+.panel-title { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.18em; color: var(--gold); text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+.panel-title::before { content: '▸'; font-size: 11px; color: var(--gold-bright); }
+.panel-subtitle { font-family: 'Rajdhani', sans-serif; font-size: 11px; color: var(--text-muted); letter-spacing: 0.15em; text-transform: uppercase; }
+.panel-body { padding: 20px; }
+
+/* STAT CARDS */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: linear-gradient(135deg, var(--bg-panel), var(--bg-panel-2)); border: 1px solid var(--border); padding: 18px 20px; position: relative; overflow: hidden; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--gold); opacity: 0.7; }
+.stat-card.red::before { background: var(--red); }
+.stat-card.yellow::before { background: var(--yellow); }
+.stat-card.green::before { background: var(--green); }
+.stat-card.orange::before { background: var(--orange); }
+.stat-card-label { font-size: 11px; letter-spacing: 0.22em; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 6px; }
+.stat-card-value { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 32px; color: var(--text); line-height: 1; }
+.stat-card.red .stat-card-value { color: var(--red); }
+.stat-card.yellow .stat-card-value { color: var(--yellow); }
+.stat-card.green .stat-card-value { color: var(--green); }
+.stat-card.gold .stat-card-value { color: var(--gold); }
+.stat-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.08em; }
+
+/* UPLOAD ZONE */
+.upload-zone { border: 2px dashed var(--border-bright); padding: 48px 24px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--gold); background: rgba(212,160,23,0.05); }
+.upload-zone-icon { font-size: 48px; margin-bottom: 12px; }
+.upload-zone-title { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.15em; color: var(--gold); margin-bottom: 8px; }
+.upload-zone-sub { font-size: 13px; color: var(--text-muted); letter-spacing: 0.05em; line-height: 1.6; }
+.upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+/* PROGRESS */
+.progress-wrap { margin-top: 20px; display: none; }
+.progress-wrap.show { display: block; }
+.progress-label { font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 8px; }
+.progress-bar-track { height: 8px; background: var(--bg-deep); border: 1px solid var(--border); }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--red), var(--gold)); transition: width 0.3s; }
+.progress-status { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--gold-dim); margin-top: 6px; letter-spacing: 0.05em; }
+
+/* TABLE */
+.tbl-wrap { overflow: auto; border: 1px solid var(--border); }
+.tbl { width: 100%; border-collapse: collapse; font-family: 'Rajdhani', sans-serif; min-width: 700px; }
+.tbl thead { position: sticky; top: 0; z-index: 5; }
+.tbl th { background: var(--bg-elev); color: var(--gold); font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em; padding: 10px 12px; text-align: left; text-transform: uppercase; border-bottom: 2px solid var(--gold-dim); cursor: pointer; user-select: none; white-space: nowrap; }
+.tbl th:hover { color: var(--gold-bright); }
+.tbl th.num { text-align: right; }
+.tbl td { padding: 8px 12px; border-bottom: 1px solid rgba(212,160,23,0.08); font-size: 14px; color: var(--text); }
+.tbl td.num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+.tbl tbody tr:hover { background: rgba(212,160,23,0.05); }
+.tbl tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+
+/* THREAT BADGES */
+.threat { display: inline-block; padding: 3px 10px; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 2px; }
+.threat.whale { background: rgba(192,57,43,0.25); color: #ff6b5e; border: 1px solid rgba(192,57,43,0.5); }
+.threat.dangerous { background: rgba(230,126,34,0.2); color: #e67e22; border: 1px solid rgba(230,126,34,0.4); }
+.threat.caution { background: rgba(241,196,15,0.15); color: #f1c40f; border: 1px solid rgba(241,196,15,0.35); }
+.threat.beatable { background: rgba(39,174,96,0.15); color: #2ecc71; border: 1px solid rgba(39,174,96,0.35); }
+.threat.unknown { background: rgba(127,140,141,0.1); color: var(--text-muted); border: 1px solid rgba(127,140,141,0.25); }
+
+/* TIER BADGE */
+.tier-badge { display: inline-block; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 12px; width: 36px; text-align: center; padding: 3px 0; border-radius: 2px; border: 1px solid var(--border); background: var(--bg-elev); }
+.tier-badge.t10 { background: linear-gradient(135deg, rgba(192,57,43,0.4), rgba(192,57,43,0.1)); color: #ff6b5e; border-color: rgba(192,57,43,0.6); }
+.tier-badge.t9 { background: rgba(230,126,34,0.15); color: var(--orange); border-color: rgba(230,126,34,0.4); }
+.tier-badge.t8 { background: rgba(241,196,15,0.1); color: var(--yellow); border-color: rgba(241,196,15,0.3); }
+.tier-badge.tlow { color: var(--text-muted); }
+
+/* CONTROLS */
+.controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.inp { background: var(--bg-elev); border: 1px solid var(--border); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 14px; padding: 8px 12px; outline: none; transition: border 0.15s; }
+.inp:focus { border-color: var(--gold); }
+.sel { background: var(--bg-elev); border: 1px solid var(--border); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 14px; padding: 8px 12px; outline: none; cursor: pointer; }
+.sel:focus { border-color: var(--gold); }
+.btn { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--bg-elev); border: 1px solid var(--border); color: var(--text); padding: 8px 16px; cursor: pointer; transition: all 0.15s; }
+.btn:hover { border-color: var(--gold); color: var(--gold-bright); }
+.btn.primary { background: linear-gradient(135deg, var(--red), rgba(192,57,43,0.6)); border-color: var(--red); color: #fff; }
+.btn.primary:hover { box-shadow: 0 0 16px rgba(192,57,43,0.5); }
+.btn.gold { background: linear-gradient(135deg, var(--gold), var(--gold-dim)); border-color: var(--gold-bright); color: var(--bg-deep); font-weight: 700; }
+.btn.gold:hover { box-shadow: 0 0 16px rgba(212,160,23,0.5); }
+
+/* MISSING SERVERS */
+.missing-servers { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.server-chip { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 12px; padding: 6px 14px; border: 1.5px solid var(--border); color: var(--text-muted); background: var(--bg-elev); letter-spacing: 0.08em; }
+.server-chip.has-data { border-color: var(--green); color: var(--green); background: rgba(39,174,96,0.08); }
+.server-chip.missing { border-color: var(--red); color: #ff6b5e; background: rgba(192,57,43,0.08); animation: pulse-red 2s infinite; }
+@keyframes pulse-red { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 10px rgba(192,57,43,0.4); } }
+
+/* INSTRUCTIONS */
+.instructions { background: rgba(212,160,23,0.06); border: 1px solid var(--border); padding: 20px; margin-bottom: 20px; }
+.instructions ol { padding-left: 20px; }
+.instructions li { margin-bottom: 8px; font-size: 14px; color: var(--text-muted); letter-spacing: 0.03em; line-height: 1.5; }
+.instructions li strong { color: var(--gold); }
+.instructions .note { margin-top: 12px; font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.03em; }
+
+/* IMPORT LIST */
+.import-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.import-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg-elev); border: 1px solid var(--border); }
+.import-item-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gold); flex: 1; }
+.import-item-count { font-size: 12px; color: var(--text-muted); }
+.import-item-remove { background: none; border: none; color: var(--red); cursor: pointer; font-size: 16px; padding: 0 4px; }
+
+/* ALLIANCE BARS */
+.alliance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.alliance-card { background: var(--bg-elev); border: 1px solid var(--border); padding: 16px; }
+.alliance-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.alliance-tag { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 18px; color: var(--gold); }
+.alliance-server { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+.alliance-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.alliance-stat { text-align: center; }
+.alliance-stat-val { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 16px; color: var(--text); }
+.alliance-stat-lbl { font-size: 10px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+.tier-bar { display: flex; height: 20px; overflow: hidden; border-radius: 2px; gap: 2px; }
+.tier-seg { display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; color: rgba(0,0,0,0.7); transition: flex 0.4s; cursor: default; }
+.tier-seg.t10 { background: rgba(192,57,43,0.85); }
+.tier-seg.t9 { background: rgba(230,126,34,0.85); }
+.tier-seg.t8 { background: rgba(241,196,15,0.75); }
+.tier-seg.tlow { background: rgba(39,174,96,0.6); }
+
+/* EMPTY */
+.empty { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; letter-spacing: 0.08em; }
+
+/* TWO COL */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+/* SORT IND */
+.sort-ind { opacity: 0.5; margin-left: 4px; font-size: 9px; }
+.sorted .sort-ind { opacity: 1; color: var(--gold-bright); }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-inner">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <div class="brand-title">WAR PLANNER</div>
+        <div class="brand-sub">Battle Group Arena Intel</div>
+      </div>
+    </div>
+    <div class="top-stats">
+      <div class="top-stat"><div class="top-stat-label">Players</div><div class="top-stat-value gold" id="statPlayers">—</div></div>
+      <div class="top-stat"><div class="top-stat-label">T10</div><div class="top-stat-value red" id="statT10">—</div></div>
+      <div class="top-stat"><div class="top-stat-label">T9</div><div class="top-stat-value yellow" id="statT9">—</div></div>
+      <div class="top-stat"><div class="top-stat-label">Beatable</div><div class="top-stat-value green" id="statBeatable">—</div></div>
+      <div class="top-stat"><div class="top-stat-label">Servers</div><div class="top-stat-value gold" id="statServers">—</div></div>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-view="upload">📹 Process Video</button>
+    <button class="nav-tab" data-view="dashboard">⚔️ War Dashboard</button>
+    <button class="nav-tab" data-view="alliances">🛡️ Alliances</button>
+    <button class="nav-tab" data-view="share">📤 Share / Import</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ===== PROCESS VIDEO ===== -->
+  <div class="view active" id="view-upload">
+
+    <div class="instructions">
+      <div style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:13px;color:var(--gold);letter-spacing:0.15em;margin-bottom:12px;">HOW TO USE</div>
+      <ol>
+        <li>Open the <strong>Arena</strong> in your game and go to the <strong>Storm Arena</strong> tab.</li>
+        <li><strong>Screen record</strong> while slowly scrolling through the full player list — go all the way to the bottom.</li>
+        <li>Upload the recording below. The tool will extract every player it can find.</li>
+        <li>When done, go to <strong>Share / Import</strong> and export a JSON. Send it to your war planner.</li>
+        <li>Your war planner imports all JSONs → sees the full bracket in <strong>War Dashboard</strong>.</li>
+      </ol>
+      <div class="note">⚡ Processing happens entirely in your browser. Nothing is uploaded anywhere. Works on Chrome, Safari, Firefox, Edge.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Upload Arena Recording</div>
+        <div class="panel-subtitle">Video or Screenshots</div>
+      </div>
+      <div class="panel-body">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="video/*,image/*" multiple>
+          <div class="upload-zone-icon">📹</div>
+          <div class="upload-zone-title">DROP VIDEO OR SCREENSHOTS HERE</div>
+          <div class="upload-zone-sub">
+            Screen recording (MP4, MOV) or individual screenshots (PNG, JPG)<br>
+            Multiple screenshots supported — upload them all at once
+          </div>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-label" id="progressLabel">Initialising OCR engine…</div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+          <div class="progress-status" id="progressStatus">Please wait</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Season Data</div>
+        <div class="panel-subtitle">Enrich players with THP &amp; Alliance Power from leaderboard screenshots</div>
+      </div>
+      <div class="panel-body">
+        <p style="color:var(--text-muted);font-size:13px;line-height:1.6;margin-bottom:16px">
+          Screenshot the in-game season leaderboards or your LWAMP dashboard and upload them here. THP enriches threat ratings; Alliance Power appears on alliance cards.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <div>
+            <div style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.18em;color:var(--gold);margin-bottom:8px">🏆 THP / LWAMP PLAYER DATA</div>
+            <div class="upload-zone" style="padding:28px 16px" id="thpZone">
+              <input type="file" id="thpInput" accept="image/*" multiple>
+              <div class="upload-zone-icon" style="font-size:30px">💀</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:var(--gold);margin-bottom:4px">Drop THP Screenshots</div>
+              <div style="font-size:12px;color:var(--text-muted)">Season → Troop Hit Points → Top 50<br>or LWAMP player data screenshots</div>
+            </div>
+            <div class="progress-wrap" id="thpProgress">
+              <div class="progress-label">Scanning…</div>
+              <div class="progress-bar-track"><div class="progress-bar-fill" style="width:0%"></div></div>
+              <div class="progress-status" id="thpStatus"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.18em;color:var(--gold);margin-bottom:8px">⚔️ ALLIANCE POWER (TOP 20)</div>
+            <div class="upload-zone" style="padding:28px 16px" id="apZone">
+              <input type="file" id="apInput" accept="image/*" multiple>
+              <div class="upload-zone-icon" style="font-size:30px">🛡️</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:var(--gold);margin-bottom:4px">Drop Alliance Power Screenshots</div>
+              <div style="font-size:12px;color:var(--text-muted)">Season → Alliance Power → Top 20<br>or LWAMP alliance screenshots</div>
+            </div>
+            <div class="progress-wrap" id="apProgress">
+              <div class="progress-label">Scanning…</div>
+              <div class="progress-bar-track"><div class="progress-bar-fill" style="width:0%"></div></div>
+              <div class="progress-status" id="apStatus"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="resultPanel" style="display:none">
+      <div class="panel-header">
+        <div class="panel-title">Parsed Players</div>
+        <div class="panel-subtitle" id="resultSubtitle"></div>
+      </div>
+      <div class="panel-body">
+        <div class="controls">
+          <button class="btn gold" onclick="exportJSON()">⬇ Export JSON</button>
+          <button class="btn" onclick="clearData()">✕ Clear All Data</button>
+          <span class="inp" style="background:transparent;border:none;color:var(--text-muted);font-size:12px;padding:0" id="resultNote"></span>
+        </div>
+        <div class="tbl-wrap" style="max-height:500px">
+          <table class="tbl" id="resultTable">
+            <thead><tr>
+              <th>Server</th><th>Alliance</th><th>Player</th>
+              <th class="num">Power (M)</th><th>Tier</th><th>Threat</th><th class="num">Points</th>
+            </tr></thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== WAR DASHBOARD ===== -->
+  <div class="view" id="view-dashboard">
+    <div id="dashboardContent"><div class="empty">No data yet — process a video or import a JSON first.</div></div>
+  </div>
+
+  <!-- ===== ALLIANCES ===== -->
+  <div class="view" id="view-alliances">
+    <div id="allianceContent"><div class="empty">No data yet — process a video or import a JSON first.</div></div>
+  </div>
+
+  <!-- ===== SHARE / IMPORT ===== -->
+  <div class="view" id="view-share">
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Export Your Data</div></div>
+        <div class="panel-body">
+          <p style="color:var(--text-muted);font-size:13px;line-height:1.7;margin-bottom:16px">
+            Export your arena scan as a JSON file. Send it to your war planner via Discord, email, or any chat. They import it and the dashboard updates automatically.
+          </p>
+          <button class="btn gold" onclick="exportJSON()" style="width:100%">⬇ Download JSON Export</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Import From Others</div></div>
+        <div class="panel-body">
+          <p style="color:var(--text-muted);font-size:13px;line-height:1.7;margin-bottom:16px">
+            Import JSON files sent by your friends. Each import merges their players in. Duplicate players are automatically resolved (higher data wins).
+          </p>
+          <div class="upload-zone" style="padding:24px" id="importZone">
+            <input type="file" id="importInput" accept=".json" multiple onchange="handleImport(this)">
+            <div style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:13px;color:var(--gold);letter-spacing:0.12em">DROP JSON FILES HERE</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Or click to browse</div>
+          </div>
+          <div class="import-list" id="importList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Server Coverage</div>
+        <div class="panel-subtitle">Mark which servers you still need data from</div>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <input class="inp" id="serverInput" placeholder="Add server number (e.g. 2090)" style="min-width:220px">
+          <button class="btn" onclick="addServer()">+ Add Server</button>
+        </div>
+        <div class="missing-servers" id="serverChips"></div>
+        <p style="font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;margin-top:8px">
+          Green = data received · Red = still waiting
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const state = {
+  players: {},
+  imports: [],
+  servers: new Set(),
+  expectedServers: new Set(),
+  sortKey: 'power',
+  sortDir: 'desc',
+  filterServer: '',
+  filterTier: '',
+  filterThreat: '',
+  thpData: {},
+  alliancePowerData: {},
+};
+
+function playerThreat(p) {
+  const t = p.troopTier;
+  const pw = p.power || 0;
+  const thpB = p.thp ? p.thp / 1e9 : null;
+  if (t === 10) {
+    if ((thpB !== null && thpB >= 2) || pw >= 35) return 'whale';
+    return 'dangerous';
+  }
+  if (t === 9) {
+    if ((thpB !== null && thpB >= 1.5) || pw >= 30) return 'caution';
+    return 'beatable';
+  }
+  if (t != null && t <= 8) return 'beatable';
+  if ((thpB !== null && thpB >= 2) || pw >= 35) return 'whale';
+  if ((thpB !== null && thpB >= 1) || pw >= 28) return 'caution';
+  return 'unknown';
+}
+
+function threatOrder(t) { return { whale: 0, dangerous: 1, caution: 2, beatable: 3, unknown: 4 }[t] ?? 5; }
+function threatLabel(t) { return { whale: '🔴 Whale', dangerous: '🟠 Dangerous', caution: '🟡 Caution', beatable: '🟢 Beatable', unknown: '⚪ Unknown' }[t] ?? '⚪ Unknown'; }
+
+function mergePlayer(p) {
+  const id = `${p.server}-${p.name.toLowerCase().trim()}`;
+  const existing = state.players[id];
+  if (!existing) {
+    const thpEntry = state.thpData[id];
+    if (thpEntry) { p.thp = thpEntry.thp; p.thpRank = thpEntry.rank; }
+    state.players[id] = { ...p, id, threat: playerThreat(p) };
+  } else {
+    if (p.troopTier != null) existing.troopTier = p.troopTier;
+    if (p.power > (existing.power || 0)) existing.power = p.power;
+    if (p.points > (existing.points || 0)) existing.points = p.points;
+    if (p.alliance) existing.alliance = p.alliance;
+    if (p.thp && (!existing.thp || p.thp > existing.thp)) existing.thp = p.thp;
+    existing.threat = playerThreat(existing);
+  }
+  if (p.server) state.servers.add(p.server);
+  updateStats();
+}
+
+function allPlayers() { return Object.values(state.players); }
+
+let tesseractWorker = null;
+
+async function initTesseract() {
+  if (tesseractWorker) return;
+  setProgress(5, 'Loading OCR engine…', 'Downloading language data (~10MB, first time only)');
+  tesseractWorker = await Tesseract.createWorker('eng', 1, {
+    logger: m => {
+      if (m.status === 'recognizing text')
+        setProgress(20 + m.progress * 60, 'Running OCR…', `Recognising text: ${Math.round(m.progress * 100)}%`);
+    }
+  });
+}
+
+function parseArenaText(text) {
+  const players = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const serverMatch = line.match(/#(\d{4})/);
+    if (!serverMatch) continue;
+    const server = serverMatch[1];
+    const allianceMatch = line.match(/\[([^\]]{1,8})\]/);
+    const alliance = allianceMatch ? allianceMatch[1].trim() : '';
+    const powerMatch = line.match(/(\d+\.?\d*)\s*[Mm]/);
+    if (!powerMatch) continue;
+    const power = parseFloat(powerMatch[1]);
+    if (power < 1 || power > 200) continue;
+    const tierMatch = line.match(/[Ll][Vv]\.?\s*(\d{1,2})/);
+    const troopTier = tierMatch ? parseInt(tierMatch[1]) : null;
+    const allNums = [...line.matchAll(/\b(\d{3,4})\b/g)];
+    const points = allNums.length ? parseInt(allNums[allNums.length - 1][1]) : null;
+    const rankMatch = line.match(/^(\d{1,3})\s/);
+    const rank = rankMatch ? parseInt(rankMatch[1]) : null;
+    let name = '';
+    if (allianceMatch) {
+      const afterTag = line.slice(line.indexOf(']') + 1);
+      name = afterTag.split(/\d+\.?\d*\s*[Mm]/)[0].trim();
+    }
+    if (!name) name = `S${server}-${power}M`;
+    players.push({ server, alliance, name, power, troopTier, points, rank });
+  }
+  return players;
+}
+
+function parseTHPText(text) {
+  const entries = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const serverMatch = line.match(/#(\d{4})/);
+    if (!serverMatch) continue;
+    const server = serverMatch[1];
+    const allianceMatch = line.match(/\[([^\]]{1,8})\]/);
+    const alliance = allianceMatch ? allianceMatch[1].trim() : '';
+    let thp = null;
+    const billionMatch = line.match(/(\d+\.?\d*)\s*[Bb]/);
+    const rawNums = [...line.matchAll(/\b(\d{1,3}(?:,\d{3})+)\b/g)].map(m => parseFloat(m[1].replace(/,/g, '')));
+    if (billionMatch) thp = parseFloat(billionMatch[1]) * 1e9;
+    else if (rawNums.length) thp = Math.max(...rawNums);
+    if (!thp || thp < 1e6) continue;
+    const rankMatch = line.match(/^(\d{1,3})\s/);
+    const rank = rankMatch ? parseInt(rankMatch[1]) : null;
+    let name = allianceMatch
+      ? line.slice(line.indexOf(']') + 1).split(/#\d{4}/)[0].trim()
+      : line.split(/#\d{4}/)[0].replace(/^\d+\s*/, '').trim();
+    if (!name) continue;
+    entries.push({ server, alliance, name, thp, rank });
+  }
+  return entries;
+}
+
+function parseAlliancePowerText(text) {
+  const entries = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const serverMatch = line.match(/#(\d{4})/);
+    if (!serverMatch) continue;
+    const server = serverMatch[1];
+    const allianceMatch = line.match(/\[([^\]]{1,8})\]/);
+    const alliance = allianceMatch ? allianceMatch[1].trim() : '';
+    const powerMatch = line.match(/(\d+\.?\d*)\s*[Mm]/);
+    if (!powerMatch) continue;
+    const power = parseFloat(powerMatch[1]);
+    if (power < 1 || power > 5000) continue;
+    const rankMatch = line.match(/^(\d{1,3})\s/);
+    const rank = rankMatch ? parseInt(rankMatch[1]) : null;
+    let allianceName = alliance;
+    if (allianceMatch) {
+      const beforeTag = line.slice(0, line.indexOf('[')).replace(/^\d+\s*/, '').trim();
+      if (beforeTag) allianceName = beforeTag;
+    }
+    entries.push({ server, alliance, allianceName, power, rank });
+  }
+  return entries;
+}
+
+async function fileToDataUrl(file) {
+  return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsDataURL(file); });
+}
+
+async function processSeasonFiles(files, dataType) {
+  await initTesseract();
+  const progId = dataType === 'thp' ? 'thpProgress' : 'apProgress';
+  const summId = dataType === 'thp' ? 'thpStatus' : 'apStatus';
+  const prog = document.getElementById(progId);
+  prog.classList.add('show');
+  document.getElementById(summId).textContent = 'Scanning…';
+  let count = 0;
+  for (let i = 0; i < files.length; i++) {
+    prog.querySelector('.progress-label').textContent = `Scanning ${files[i].name} (${i+1}/${files.length})…`;
+    prog.querySelector('.progress-bar-fill').style.width = `${Math.round((i / files.length) * 90)}%`;
+    const result = await tesseractWorker.recognize(await fileToDataUrl(files[i]));
+    if (dataType === 'thp') {
+      parseTHPText(result.data.text).forEach(e => {
+        const id = `${e.server}-${e.name.toLowerCase().trim()}`;
+        state.thpData[id] = { thp: e.thp, rank: e.rank, alliance: e.alliance };
+        if (state.players[id]) { state.players[id].thp = e.thp; state.players[id].thpRank = e.rank; state.players[id].threat = playerThreat(state.players[id]); }
+        count++;
+      });
+    } else {
+      parseAlliancePowerText(result.data.text).forEach(e => {
+        state.alliancePowerData[`${e.server}-${e.alliance.toLowerCase()}`] = { power: e.power, rank: e.rank, allianceName: e.allianceName };
+        count++;
+      });
+    }
+  }
+  prog.querySelector('.progress-bar-fill').style.width = '100%';
+  prog.querySelector('.progress-label').textContent = 'Done!';
+  document.getElementById(summId).textContent = `✓ ${count} entries loaded`;
+  renderDashboard(); renderAlliances(); updateStats();
+}
+
+async function extractFramesFromVideo(file) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.muted = true; video.playsInline = true;
+    video.src = URL.createObjectURL(file);
+    video.onloadedmetadata = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      const frames = [];
+      const duration = video.duration;
+      const total = Math.ceil(duration / 1.0);
+      setProgress(10, `Extracting frames…`, `Duration: ${Math.round(duration)}s → ~${total} frames`);
+      for (let i = 0; i < total; i++) {
+        video.currentTime = i;
+        await new Promise(r => { video.onseeked = r; });
+        ctx.drawImage(video, 0, 0);
+        frames.push(canvas.toDataURL('image/jpeg', 0.85));
+        setProgress(10 + (i / total) * 10, `Extracting frames…`, `Frame ${i + 1} of ${total}`);
+      }
+      URL.revokeObjectURL(video.src);
+      resolve(frames);
+    };
+    video.onerror = () => reject(new Error('Could not load video.'));
+  });
+}
+
+async function processFiles(files) {
+  showProgress(true);
+  await initTesseract();
+  const allFrames = [];
+  for (const file of files) {
+    if (file.type.startsWith('video/')) {
+      setProgress(10, `Processing video: ${file.name}`, 'Extracting frames…');
+      allFrames.push(...await extractFramesFromVideo(file));
+    } else if (file.type.startsWith('image/')) {
+      allFrames.push(await fileToDataUrl(file));
+    }
+  }
+  setProgress(20, `OCR scanning ${allFrames.length} frame(s)…`, 'This may take a while for long recordings');
+  const seen = new Set();
+  for (let i = 0; i < allFrames.length; i++) {
+    const hash = allFrames[i].slice(100, 300);
+    if (seen.has(hash)) continue;
+    seen.add(hash);
+    setProgress(20 + (i / allFrames.length) * 75, `OCR frame ${i + 1} of ${allFrames.length}…`, 'Scanning for player data');
+    const result = await tesseractWorker.recognize(allFrames[i]);
+    parseArenaText(result.data.text).forEach(p => mergePlayer(p));
+  }
+  setProgress(100, `Done! Found ${allPlayers().length} unique players.`, '');
+  showProgress(false);
+  renderResultTable(); renderDashboard(); renderAlliances(); updateStats();
+  allPlayers().forEach(p => { if (p.server) state.ex
