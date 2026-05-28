@@ -642,4 +642,319 @@ async function processFiles(files) {
   setProgress(100, `Done! Found ${allPlayers().length} unique players.`, '');
   showProgress(false);
   renderResultTable(); renderDashboard(); renderAlliances(); updateStats();
-  allPlayers().forEach(p => { if (p.server) state.ex
+  allPlayers().forEach(p => { if (p.server) state.expectedServers.add(p.server); });
+  renderServerChips();
+}
+
+function renderResultTable() {
+  const panel = document.getElementById('resultPanel');
+  const tbody = document.getElementById('resultBody');
+  const players = allPlayers().sort((a, b) => (b.power || 0) - (a.power || 0));
+  if (players.length === 0) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  document.getElementById('resultSubtitle').textContent = `${players.length} PLAYERS FOUND`;
+  document.getElementById('resultNote').textContent = `// Exported JSON can be shared with your war planner`;
+  tbody.innerHTML = '';
+  players.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)">#${p.server}</span></td>
+      <td><span style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;color:var(--gold)">${esc(p.alliance)||'—'}</span></td>
+      <td>${esc(p.name)}</td>
+      <td class="num">${p.power?.toFixed(1)??'—'}</td>
+      <td>${tierBadge(p.troopTier)}</td>
+      <td>${threatBadge(p.threat)}</td>
+      <td class="num" style="color:var(--text-muted)">${p.points??'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderDashboard() {
+  const root = document.getElementById('dashboardContent');
+  const players = allPlayers();
+  if (players.length === 0) { root.innerHTML = '<div class="empty">No data yet — process a video or import a JSON first.</div>'; return; }
+  root.innerHTML = '';
+  const t10 = players.filter(p => p.troopTier === 10).length;
+  const t9 = players.filter(p => p.troopTier === 9).length;
+  const t8below = players.filter(p => p.troopTier != null && p.troopTier <= 8).length;
+  const unknown = players.filter(p => p.troopTier == null).length;
+  const avgPower = players.reduce((a, p) => a + (p.power || 0), 0) / players.length;
+  const sg = document.createElement('div'); sg.className = 'stat-grid';
+  sg.innerHTML = `
+    ${statCard('T10 Players', t10, `${Math.round(t10/players.length*100)}% of bracket`, 'red')}
+    ${statCard('T9 Players', t9, 'Dangerous but beatable', 'orange')}
+    ${statCard('T8 or Below', t8below, 'Priority targets', 'green')}
+    ${statCard('Avg Power', avgPower.toFixed(1)+'M', 'Across all tracked players', 'gold')}
+    ${statCard('Unknown Tier', unknown, 'Missing Lv. data', '')}`;
+  root.appendChild(sg);
+  const ctrls = document.createElement('div'); ctrls.className = 'controls';
+  const serverSel = document.createElement('select'); serverSel.className = 'sel';
+  serverSel.innerHTML = '<option value="">All servers</option>';
+  [...state.servers].sort().forEach(s => { serverSel.innerHTML += `<option value="${s}" ${state.filterServer===s?'selected':''}>#${s}</option>`; });
+  serverSel.onchange = e => { state.filterServer = e.target.value; renderDashboard(); };
+  ctrls.appendChild(serverSel);
+  const tierSel = document.createElement('select'); tierSel.className = 'sel';
+  tierSel.innerHTML = `<option value="">All tiers</option><option value="10" ${state.filterTier==='10'?'selected':''}>T10 only</option><option value="9" ${state.filterTier==='9'?'selected':''}>T9 only</option><option value="8" ${state.filterTier==='8'?'selected':''}>T8 and below</option>`;
+  tierSel.onchange = e => { state.filterTier = e.target.value; renderDashboard(); };
+  ctrls.appendChild(tierSel);
+  const threatSel = document.createElement('select'); threatSel.className = 'sel';
+  threatSel.innerHTML = `<option value="">All threats</option><option value="whale">🔴 Whale</option><option value="dangerous">🟠 Dangerous</option><option value="caution">🟡 Caution</option><option value="beatable">🟢 Beatable</option>`;
+  threatSel.value = state.filterThreat;
+  threatSel.onchange = e => { state.filterThreat = e.target.value; renderDashboard(); };
+  ctrls.appendChild(threatSel);
+  root.appendChild(ctrls);
+  let filtered = players.filter(p => {
+    if (state.filterServer && p.server !== state.filterServer) return false;
+    if (state.filterTier === '10' && p.troopTier !== 10) return false;
+    if (state.filterTier === '9' && p.troopTier !== 9) return false;
+    if (state.filterTier === '8' && (p.troopTier == null || p.troopTier > 8)) return false;
+    if (state.filterThreat && p.threat !== state.filterThreat) return false;
+    return true;
+  });
+  const sk = state.sortKey, sd = state.sortDir === 'asc' ? 1 : -1;
+  filtered.sort((a, b) => {
+    if (sk === 'threat') return (threatOrder(a.threat) - threatOrder(b.threat)) * sd;
+    let av = a[sk], bv = b[sk];
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av == null) return 1; if (bv == null) return -1;
+    return (av < bv ? -1 : av > bv ? 1 : 0) * sd;
+  });
+  const panel = document.createElement('div'); panel.className = 'panel';
+  const ph = document.createElement('div'); ph.className = 'panel-header';
+  ph.innerHTML = `<div class="panel-title">Full Bracket</div><div class="panel-subtitle">${filtered.length} of ${players.length} players</div>`;
+  panel.appendChild(ph);
+  const pb = document.createElement('div'); pb.className = 'panel-body';
+  const wrap = document.createElement('div'); wrap.className = 'tbl-wrap'; wrap.style.maxHeight = '65vh';
+  const tbl = document.createElement('table'); tbl.className = 'tbl';
+  const cols = [
+    { key: 'threat', label: 'Threat', cls: '' },
+    { key: 'server', label: 'Server', cls: '' },
+    { key: 'alliance', label: 'Alliance', cls: '' },
+    { key: 'name', label: 'Player', cls: '' },
+    { key: 'troopTier', label: 'Tier', cls: '' },
+    { key: 'power', label: 'Power (M)', cls: 'num' },
+    { key: 'thp', label: 'THP', cls: 'num' },
+    { key: 'points', label: 'Points', cls: 'num' },
+  ];
+  const thead = document.createElement('thead'); const tr = document.createElement('tr');
+  cols.forEach(c => {
+    const th = document.createElement('th');
+    th.className = `${c.cls}${state.sortKey===c.key?' sorted':''}`;
+    th.innerHTML = `${c.label}<span class="sort-ind">${state.sortKey===c.key?(state.sortDir==='asc'?'▲':'▼'):'◇'}</span>`;
+    th.onclick = () => { if (state.sortKey===c.key) { state.sortDir=state.sortDir==='asc'?'desc':'asc'; } else { state.sortKey=c.key; state.sortDir=c.key==='power'||c.key==='points'||c.key==='thp'?'desc':'asc'; } renderDashboard(); };
+    tr.appendChild(th);
+  });
+  thead.appendChild(tr); tbl.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  filtered.forEach(p => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${threatBadge(p.threat)}</td>
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)">#${esc(p.server)}</span></td>
+      <td><span style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;color:var(--gold)">${esc(p.alliance)||'—'}</span></td>
+      <td>${esc(p.name)}</td>
+      <td>${tierBadge(p.troopTier)}</td>
+      <td class="num">${p.power?.toFixed(1)??'—'}</td>
+      <td class="num" style="color:${p.thp?'var(--orange)':'var(--text-muted)'}">${p.thp?(p.thp/1e9).toFixed(2)+'B':'—'}</td>
+      <td class="num" style="color:var(--text-muted)">${p.points??'—'}</td>`;
+    tbody.appendChild(row);
+  });
+  tbl.appendChild(tbody); wrap.appendChild(tbl); pb.appendChild(wrap); panel.appendChild(pb); root.appendChild(panel);
+}
+
+function renderAlliances() {
+  const root = document.getElementById('allianceContent');
+  const players = allPlayers();
+  if (players.length === 0) { root.innerHTML = '<div class="empty">No data yet.</div>'; return; }
+  const map = {};
+  players.forEach(p => {
+    const key = `${p.server}-${p.alliance}`;
+    if (!map[key]) map[key] = { server: p.server, alliance: p.alliance, members: [] };
+    map[key].members.push(p);
+  });
+  const alliances = Object.values(map).sort((a, b) => {
+    const aT10 = a.members.filter(p => p.troopTier === 10).length;
+    const bT10 = b.members.filter(p => p.troopTier === 10).length;
+    return bT10 - aT10 || b.members.length - a.members.length;
+  });
+  root.innerHTML = '';
+  const panel = document.createElement('div'); panel.className = 'panel';
+  const ph = document.createElement('div'); ph.className = 'panel-header';
+  ph.innerHTML = `<div class="panel-title">Alliance Breakdown</div><div class="panel-subtitle">${alliances.length} alliances tracked</div>`;
+  panel.appendChild(ph);
+  const pb = document.createElement('div'); pb.className = 'panel-body';
+  const grid = document.createElement('div'); grid.className = 'alliance-grid';
+  alliances.forEach(a => {
+    const t10 = a.members.filter(p => p.troopTier === 10).length;
+    const t9 = a.members.filter(p => p.troopTier === 9).length;
+    const t8 = a.members.filter(p => p.troopTier != null && p.troopTier <= 8).length;
+    const avgPower = a.members.reduce((s, p) => s + (p.power || 0), 0) / a.members.length;
+    const totalTHP = a.members.reduce((s, p) => s + (p.thp || 0), 0);
+    const total = a.members.length;
+    const threat = t10/total > 0.5 ? 'whale' : t10 > 0 ? 'dangerous' : t9 > 0 ? 'caution' : 'beatable';
+    const ap = state.alliancePowerData[`${a.server}-${a.alliance.toLowerCase()}`];
+    const card = document.createElement('div'); card.className = 'alliance-card';
+    card.innerHTML = `
+      <div class="alliance-card-header">
+        <span class="alliance-tag">[${esc(a.alliance)}]</span>
+        <span class="alliance-server">#${esc(a.server)}</span>
+        <span style="margin-left:auto">${threatBadge(threat)}</span>
+      </div>
+      <div class="alliance-stats">
+        <div class="alliance-stat"><div class="alliance-stat-val" style="color:var(--red)">${t10}</div><div class="alliance-stat-lbl">T10</div></div>
+        <div class="alliance-stat"><div class="alliance-stat-val" style="color:var(--orange)">${t9}</div><div class="alliance-stat-lbl">T9</div></div>
+        <div class="alliance-stat"><div class="alliance-stat-val">${total}</div><div class="alliance-stat-lbl">Members</div></div>
+      </div>
+      <div style="display:flex;gap:16px;margin-bottom:6px;font-size:11px;color:var(--text-muted);flex-wrap:wrap">
+        <span>Avg Power: <span style="color:var(--gold);font-family:'JetBrains Mono',monospace">${avgPower.toFixed(1)}M</span></span>
+        ${ap?`<span>Alliance Power: <span style="color:var(--gold-bright);font-family:'JetBrains Mono',monospace">${ap.power.toFixed(1)}M</span>${ap.rank?` <span style="color:var(--text-dim)">#${ap.rank}</span>`:''}</span>`:''}
+        ${totalTHP>0?`<span>Total THP: <span style="color:var(--orange);font-family:'JetBrains Mono',monospace">${(totalTHP/1e9).toFixed(1)}B</span></span>`:''}
+      </div>
+      <div class="tier-bar">
+        ${t10>0?`<div class="tier-seg t10" style="flex:${t10}" title="T10: ${t10}">${t10>1?t10:''}</div>`:''}
+        ${t9>0?`<div class="tier-seg t9" style="flex:${t9}" title="T9: ${t9}">${t9>1?t9:''}</div>`:''}
+        ${t8>0?`<div class="tier-seg t8" style="flex:${t8}" title="T8-: ${t8}">${t8>1?t8:''}</div>`:''}
+      </div>`;
+    grid.appendChild(card);
+  });
+  pb.appendChild(grid); panel.appendChild(pb); root.appendChild(panel);
+}
+
+function exportJSON() {
+  const players = allPlayers();
+  if (players.length === 0) { alert('No player data to export yet.'); return; }
+  const data = { version: 2, exportedAt: new Date().toISOString(), players, thpData: state.thpData, alliancePowerData: state.alliancePowerData };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `arena-data-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleImport(input) { handleImportFiles([...input.files]); input.value = ''; }
+
+function handleImportFiles(files) {
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        const players = data.players || data;
+        if (data.thpData) Object.assign(state.thpData, data.thpData);
+        if (data.alliancePowerData) Object.assign(state.alliancePowerData, data.alliancePowerData);
+        players.forEach(p => mergePlayer(p));
+        state.imports.push({ name: file.name, count: players.length, timestamp: new Date().toISOString() });
+        renderImportList(); renderResultTable(); renderDashboard(); renderAlliances(); updateStats(); renderServerChips();
+      } catch (err) { alert(`Failed to parse ${file.name}: ${err.message}`); }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function renderImportList() {
+  const list = document.getElementById('importList'); list.innerHTML = '';
+  state.imports.forEach(imp => {
+    const item = document.createElement('div'); item.className = 'import-item';
+    item.innerHTML = `<span class="import-item-name">📄 ${esc(imp.name)}</span><span class="import-item-count">${imp.count} players</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim)">${imp.timestamp.slice(0,16).replace('T',' ')}</span>`;
+    list.appendChild(item);
+  });
+}
+
+function addServer() {
+  const inp = document.getElementById('serverInput');
+  const val = inp.value.trim().replace('#', '');
+  if (val && /^\d{4}$/.test(val)) { state.expectedServers.add(val); renderServerChips(); inp.value = ''; }
+}
+
+function renderServerChips() {
+  const container = document.getElementById('serverChips'); container.innerHTML = '';
+  [...state.expectedServers].sort().forEach(s => {
+    const hasData = state.servers.has(s);
+    const chip = document.createElement('div');
+    chip.className = `server-chip ${hasData?'has-data':'missing'}`;
+    chip.textContent = `#${s}`; chip.title = hasData ? 'Data received ✓' : 'Waiting for data…';
+    chip.onclick = () => { state.expectedServers.delete(s); renderServerChips(); };
+    container.appendChild(chip);
+  });
+}
+
+function tierBadge(tier) {
+  if (tier == null) return `<span class="tier-badge">—</span>`;
+  const cls = tier === 10 ? 't10' : tier === 9 ? 't9' : tier === 8 ? 't8' : 'tlow';
+  return `<span class="tier-badge ${cls}">T${tier}</span>`;
+}
+function threatBadge(threat) { return `<span class="threat ${threat||'unknown'}">${threatLabel(threat||'unknown')}</span>`; }
+function statCard(label, value, sub, cls) { return `<div class="stat-card ${cls}"><div class="stat-card-label">${label}</div><div class="stat-card-value">${value}</div><div class="stat-card-sub">${sub}</div></div>`; }
+function esc(str) { if (!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateStats() {
+  const players = allPlayers();
+  const t10 = players.filter(p => p.troopTier === 10).length;
+  const t9 = players.filter(p => p.troopTier === 9).length;
+  const beatable = players.filter(p => p.troopTier != null && p.troopTier <= 9).length;
+  document.getElementById('statPlayers').textContent = players.length || '—';
+  document.getElementById('statT10').textContent = t10 || '—';
+  document.getElementById('statT9').textContent = t9 || '—';
+  document.getElementById('statBeatable').textContent = beatable || '—';
+  document.getElementById('statServers').textContent = state.servers.size || '—';
+}
+
+function setProgress(pct, label, status) {
+  document.getElementById('progressFill').style.width = `${pct}%`;
+  document.getElementById('progressLabel').textContent = label;
+  document.getElementById('progressStatus').textContent = status;
+}
+function showProgress(show) { document.getElementById('progressWrap').classList.toggle('show', show); }
+
+function clearData() {
+  if (!confirm('Clear all player data? This cannot be undone.')) return;
+  Object.keys(state.players).forEach(k => delete state.players[k]);
+  state.servers.clear(); state.imports = [];
+  updateStats(); renderResultTable(); renderDashboard(); renderAlliances(); renderImportList();
+}
+
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
+    if (tab.dataset.view === 'dashboard') renderDashboard();
+    if (tab.dataset.view === 'alliances') renderAlliances();
+  });
+});
+
+const fileInput = document.getElementById('fileInput');
+fileInput.addEventListener('change', () => { if (fileInput.files.length) processFiles([...fileInput.files]); });
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('video/') || f.type.startsWith('image/'));
+  if (files.length) processFiles(files);
+});
+
+document.getElementById('serverInput').addEventListener('keydown', e => { if (e.key === 'Enter') addServer(); });
+
+const thpInput = document.getElementById('thpInput');
+thpInput.addEventListener('change', () => { if (thpInput.files.length) processSeasonFiles([...thpInput.files], 'thp'); });
+const thpZone = document.getElementById('thpZone');
+thpZone.addEventListener('dragover', e => { e.preventDefault(); thpZone.classList.add('drag-over'); });
+thpZone.addEventListener('dragleave', () => thpZone.classList.remove('drag-over'));
+thpZone.addEventListener('drop', e => { e.preventDefault(); thpZone.classList.remove('drag-over'); const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')); if (files.length) processSeasonFiles(files, 'thp'); });
+
+const apInput = document.getElementById('apInput');
+apInput.addEventListener('change', () => { if (apInput.files.length) processSeasonFiles([...apInput.files], 'alliancePower'); });
+const apZone = document.getElementById('apZone');
+apZone.addEventListener('dragover', e => { e.preventDefault(); apZone.classList.add('drag-over'); });
+apZone.addEventListener('dragleave', () => apZone.classList.remove('drag-over'));
+apZone.addEventListener('drop', e => { e.preventDefault(); apZone.classList.remove('drag-over'); const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')); if (files.length) processSeasonFiles(files, 'alliancePower'); });
+
+const importZone = document.getElementById('importZone');
+importZone.addEventListener('dragover', e => { e.preventDefault(); importZone.classList.add('drag-over'); });
+importZone.addEventListener('dragleave', () => importZone.classList.remove('drag-over'));
+importZone.addEventListener('drop', e => { e.preventDefault(); importZone.classList.remove('drag-over'); const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.json')); if (files.length) handleImportFiles(files); });
+</script>
+</body>
+</html>
